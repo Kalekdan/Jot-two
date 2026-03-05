@@ -77,6 +77,30 @@ tools/
 src/
   adapters/        # input adapters
   agent/           # core assistant logic
+  core/            # shared message models
   tools/           # modular tool implementations
   router/          # output router
+  main.py          # async event pipeline entrypoint
 ```
+
+
+### Run Locally
+
+From the repository root:
+
+```bash
+python -m src.main
+```
+
+## Adding New Input Adapters
+
+Input adapters are auto-discovered from `src/adapters/` at startup.
+
+To add a new adapter, create a new module in `src/adapters/` and define a class that:
+
+- Inherits from `BaseInputAdapter` (`src/adapters/base.py`)
+- Accepts `input_queue` and `stop_event` in `__init__`
+- Implements `async def run(self) -> None`
+- Pushes normalized `Message` objects to `input_queue`
+
+No changes are required outside `src/adapters/` for adapter registration.
