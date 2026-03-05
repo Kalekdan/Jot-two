@@ -7,11 +7,11 @@ import asyncio
 
 import src.adapters as adapters_pkg
 from src.adapters.base import BaseInputAdapter
-from src.core.messages import Message
+from src.streams.streams import MessageWriter
 
 
 def load_input_adapters(
-    input_queue: asyncio.Queue[Message],
+    input_queue: MessageWriter,
     stop_event: asyncio.Event,
 ) -> list[BaseInputAdapter]:
     """Discover and instantiate adapter classes from src/adapters modules."""
