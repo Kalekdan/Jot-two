@@ -34,6 +34,9 @@ The system follows an event-driven architecture.
 
 <img width="600" alt="image" src="https://github.com/user-attachments/assets/21e059e4-76bd-4aa8-9764-0478630673ba" />
 
+### Technologies
+Jot-two will be primarily built in Python, using Redis Streams for queing messages. Any web interface (if needed) will be built in React.JS.
+
 ### Input Interface
 All input interface adapters will produce a standard JSON output as follows:
 ``` JSON
