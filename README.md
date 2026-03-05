@@ -10,5 +10,21 @@ Implements many of the same functionalities of Jot. Primary enhancements include
   - Jot only allowed voice input, but I would like to be able to interface with Jot from anywhere
 
 
-### High Level Design
-<img width="1599" height="1281" alt="image" src="https://github.com/user-attachments/assets/21e059e4-76bd-4aa8-9764-0478630673ba" />
+## High Level Design
+<img width="650" alt="image" src="https://github.com/user-attachments/assets/21e059e4-76bd-4aa8-9764-0478630673ba" />
+
+### Input Interface
+All input interface adapters will produce a standard JSON output as follows:
+``` JSON
+{
+   "request_id":"uuid-123",
+   "source":"whatsapp",
+   "user_id":"user_42",
+   "reply_channel":"whatsapp", // optional: if not provided, defaults to source
+   "timestamp":1710000000,
+   "payload":{
+      "text":"Turn the lights on"
+   }
+}
+```
+This is sent to the input queue to be picked up by the agent.
