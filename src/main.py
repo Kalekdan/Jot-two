@@ -4,51 +4,63 @@ import asyncio
 
 from src.adapters.loader import load_input_adapters
 from src.agent.agent import Agent
-from src.core.messages import Message
 from src.router.dispatch import DispatchOutputRouter
+from src.streams.client import get_redis_client
+from src.streams.streams import (
+    CORE_CONSUMER_GROUP,
+    INPUT_STREAM,
+    OUTPUT_STREAM,
+    ROUTER_CONSUMER_GROUP,
+    RedisStreamWriter,
+    ack_message,
+    ensure_consumer_group,
+    parse_message,
+    read_messages,
+    write_message,
+)
 
 
-async def processing_worker(
-    input_queue: asyncio.Queue[Message],
-    output_queue: asyncio.Queue[Message | None],
-    agent: Agent,
-    stop_event: asyncio.Event,
+async def core_worker(redis_client, agent: Agent, stop_event: asyncio.Event) -> None:
+    """Read from the input stream, invoke the agent, and write responses to the output stream."""
+    await ensure_consumer_group(redis_client, INPUT_STREAM, CORE_CONSUMER_GROUP)
+
+    while not stop_event.is_set():
+        entries = await read_messages(
+            redis_client, INPUT_STREAM, CORE_CONSUMER_GROUP, "jot-core-1"
+        )
+        for _stream, messages in entries:
+            for entry_id, fields in messages:
+                message = parse_message(fields["data"])
+                response = await agent.process(message)
+                await write_message(redis_client, OUTPUT_STREAM, response)
+                await ack_message(redis_client, INPUT_STREAM, CORE_CONSUMER_GROUP, entry_id)
+
+
+async def router_worker(
+    redis_client, router: DispatchOutputRouter, stop_event: asyncio.Event
 ) -> None:
-    while True:
-        if stop_event.is_set() and input_queue.empty():
-            await output_queue.put(None)
-            break
+    """Read from the output stream and dispatch each message via the router."""
+    await ensure_consumer_group(redis_client, OUTPUT_STREAM, ROUTER_CONSUMER_GROUP)
 
-        try:
-            message = await asyncio.wait_for(input_queue.get(), timeout=0.1)
-        except asyncio.TimeoutError:
-            continue
-
-        response = await agent.process(message)
-        await output_queue.put(response)
-        input_queue.task_done()
-
-
-async def output_worker(
-    output_queue: asyncio.Queue[Message | None],
-    router: DispatchOutputRouter,
-) -> None:
-    while True:
-        message = await output_queue.get()
-        if message is None:
-            output_queue.task_done()
-            break
-
-        await router.send(message)
-        output_queue.task_done()
+    while not stop_event.is_set():
+        entries = await read_messages(
+            redis_client, OUTPUT_STREAM, ROUTER_CONSUMER_GROUP, "jot-router-1"
+        )
+        for _stream, messages in entries:
+            for entry_id, fields in messages:
+                message = parse_message(fields["data"])
+                await router.send(message)
+                await ack_message(
+                    redis_client, OUTPUT_STREAM, ROUTER_CONSUMER_GROUP, entry_id
+                )
 
 
 async def run() -> None:
-    input_queue: asyncio.Queue[Message] = asyncio.Queue()
-    output_queue: asyncio.Queue[Message | None] = asyncio.Queue()
+    redis_client = await get_redis_client()
     stop_event = asyncio.Event()
 
-    adapters = load_input_adapters(input_queue=input_queue, stop_event=stop_event)
+    writer = RedisStreamWriter(redis_client, INPUT_STREAM)
+    adapters = load_input_adapters(input_queue=writer, stop_event=stop_event)
     if not adapters:
         raise RuntimeError("No input adapters found in src/adapters.")
 
@@ -56,22 +68,18 @@ async def run() -> None:
     router = DispatchOutputRouter()
 
     adapter_tasks = [asyncio.create_task(adapter.run()) for adapter in adapters]
-    processing_task = asyncio.create_task(
-        processing_worker(
-            input_queue=input_queue,
-            output_queue=output_queue,
-            agent=agent,
-            stop_event=stop_event,
-        )
-    )
-    output_task = asyncio.create_task(
-        output_worker(output_queue=output_queue, router=router)
-    )
+    core_task = asyncio.create_task(core_worker(redis_client, agent, stop_event))
+    router_task = asyncio.create_task(router_worker(redis_client, router, stop_event))
 
     await asyncio.gather(*adapter_tasks)
     stop_event.set()
-    await processing_task
-    await output_task
+    for task in (core_task, router_task):
+        try:
+            await task
+        except Exception as exc:
+            print(f"Worker error: {exc}")
+
+    await redis_client.aclose()
 
 
 if __name__ == "__main__":

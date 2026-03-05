@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from src.adapters.base import BaseInputAdapter
 from src.core.messages import Message
+from src.streams.streams import MessageWriter
 
 
 def from_console_text(text: str, user_id: str = "console_user") -> Message:
@@ -24,7 +25,7 @@ class ConsoleInputAdapter(BaseInputAdapter):
 
     def __init__(
         self,
-        input_queue: asyncio.Queue[Message],
+        input_queue: MessageWriter,
         stop_event: asyncio.Event,
     ) -> None:
         self.input_queue = input_queue
