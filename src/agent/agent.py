@@ -13,12 +13,16 @@ class Agent:
 
         response = Message(
             request_id=message.request_id,
-            source="agent",
+            source=message.source,
             user_id=message.user_id,
             reply_channel=message.reply_channel,
             timestamp=message.timestamp,
             payload={
-                "text": f"Received: '{text}'. This is a mock response from Jot-two.",
+                "text": (
+                    f"Received message '{text}' from source '{message.source}', "
+                    f"with reply channel '{message.reply_channel}'. "
+                    "This is a mock response from Jot-two."
+                ),
             },
         )
 
