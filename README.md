@@ -67,3 +67,13 @@ tools/
   rss_reader.py
   calendar.py
 ```
+
+
+## Repository Structure
+```
+src/
+  adapters/        # input adapters
+  agent/           # core assistant logic
+  tools/           # modular tool implementations
+  router/          # output router
+```
