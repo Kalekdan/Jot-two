@@ -104,3 +104,19 @@ To add a new adapter, create a new module in `src/adapters/` and define a class 
 - Pushes normalized `Message` objects to `input_queue`
 
 No changes are required outside `src/adapters/` for adapter registration.
+
+
+### Required Environment Variable
+To be set in the .env file
+- `TELEGRAM_BOT_TOKEN`: Telegram bot token from BotFather
+
+### Optional Environment Variables
+To be set in the .env file
+- `TELEGRAM_POLL_TIMEOUT` (default `20`): long-poll timeout in seconds for `getUpdates`
+- `TELEGRAM_RETRY_DELAY` (default `2`): delay before retrying after Telegram API errors
+
+### Docker Compose Usage
+
+```bash
+docker compose up --build
+```
