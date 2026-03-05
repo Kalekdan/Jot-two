@@ -8,3 +8,7 @@ Implements many of the same functionalities of Jot. Primary enhancements include
   - Jot was very sequential in it's processing, would wait for one thing to happen before the next would start. Needs to be able to support multiple activities running in parallel, and make use of streaming where possible
 - More inputs
   - Jot only allowed voice input, but I would like to be able to interface with Jot from anywhere
+
+
+### High Level Design
+<img width="1599" height="1281" alt="image" src="https://github.com/user-attachments/assets/21e059e4-76bd-4aa8-9764-0478630673ba" />
