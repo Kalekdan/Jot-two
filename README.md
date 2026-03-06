@@ -147,3 +147,37 @@ To be set in the .env file
 ```bash
 docker compose up --build
 ```
+
+## Web UI (Jot-two Manager)
+
+A web-based management interface is available at **http://localhost:8080** when running with Docker Compose.
+
+### Dashboard
+
+The dashboard provides a real-time overview of the system:
+
+- **Service Status** — connectivity indicators for Redis, PostgreSQL, and each Docker container
+- **Redis Streams** — message volumes, consumer groups, and recent message sources for `jot:input` and `jot:output`
+- **PostgreSQL Tables** — lists all tables with row counts; click any table to expand and inspect its rows
+
+### Chat
+
+The **Chat** page connects directly to Jot-two via a WebSocket. Messages are submitted with `web-app` as the source and replies are streamed back in real time.
+
+### Running the Web UI standalone (development)
+
+The frontend dev server proxies API and WebSocket calls to the backend, so you can run both separately:
+
+```bash
+# Terminal 1 — Python backend (requires Redis + PostgreSQL running)
+pip install -r requirements.txt
+python -m src.main_webapp
+
+# Terminal 2 — React frontend with hot reload
+cd web-app
+npm install
+npm run dev
+```
+
+The dev server will be available at **http://localhost:5173** and proxies `/api` and `/ws` to `localhost:8080`.
+

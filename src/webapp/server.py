@@ -20,6 +20,7 @@ from typing import Any
 from uuid import uuid4
 
 import asyncpg
+import docker as docker_sdk
 import redis.asyncio as aioredis
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     stop_event.set()
     try:
         await asyncio.wait_for(dispatcher_task, timeout=3.0)
-    except (asyncio.TimeoutError, asyncio.CancelledError):
+    except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
         pass
 
 
@@ -228,6 +229,95 @@ async def get_status() -> dict[str, Any]:
     return {"ok": True, "status": status}
 
 
+@app.get("/api/containers")
+async def get_containers() -> dict[str, Any]:
+    """Return Docker container names and their run status.
+
+    Requires the Docker socket to be mounted at /var/run/docker.sock.
+    """
+    def _list_containers() -> list[dict[str, Any]]:
+        client = docker_sdk.from_env()
+        containers = client.containers.list(all=True)
+        result = []
+        for c in containers:
+            result.append(
+                {
+                    "id": c.short_id,
+                    "name": c.name,
+                    "image": c.image.tags[0] if len(c.image.tags) > 0 else c.image.short_id,
+                    "status": c.status,
+                    "running": c.status == "running",
+                }
+            )
+        client.close()
+        return result
+
+    try:
+        containers = await asyncio.to_thread(_list_containers)
+        return {"ok": True, "containers": containers}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "containers": []}
+
+
+@app.get("/api/database/{table_name}/rows")
+async def get_table_rows(
+    table_name: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Return a paginated preview of rows from a PostgreSQL table."""
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", table_name):
+        return {"ok": False, "error": "Invalid table name.", "columns": [], "rows": []}
+
+    safe_limit = max(1, min(limit, 200))
+    safe_offset = max(0, offset)
+
+    try:
+        conn = await _get_pg_conn()
+        try:
+            # Verify the table exists in the public schema before querying it
+            exists = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                      AND table_type = 'BASE TABLE'
+                      AND table_name = $1
+                )
+                """,
+                table_name,
+            )
+            if not exists:
+                return {"ok": False, "error": f"Table '{table_name}' not found.", "columns": [], "rows": []}
+
+            rows = await conn.fetch(
+                f'SELECT * FROM "{table_name}" LIMIT $1 OFFSET $2',
+                safe_limit,
+                safe_offset,
+            )
+            if rows:
+                columns = list(rows[0].keys())
+                data = [[str(v) if v is not None else None for v in r.values()] for r in rows]
+            else:
+                # Fetch column names even when the table is empty
+                col_rows = await conn.fetch(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = $1
+                    ORDER BY ordinal_position
+                    """,
+                    table_name,
+                )
+                columns = [r["column_name"] for r in col_rows]
+                data = []
+            return {"ok": True, "columns": columns, "rows": data}
+        finally:
+            await conn.close()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "columns": [], "rows": []}
+
+
 # ---------------------------------------------------------------------------
 # WebSocket chat endpoint
 # ---------------------------------------------------------------------------
@@ -273,7 +363,11 @@ async def websocket_chat(websocket: WebSocket, user_id: str) -> None:
 
 async def output_dispatcher(stop_event: asyncio.Event) -> None:
     """Continuously read from jot:output and forward web-app messages to WS clients."""
-    redis_client = await _get_redis()
+    try:
+        redis_client = await _get_redis()
+    except Exception as exc:
+        logger.warning("output_dispatcher: could not connect to Redis: %s", exc)
+        return
     try:
         await ensure_consumer_group(redis_client, OUTPUT_STREAM, WEBAPP_CONSUMER_GROUP)
         while not stop_event.is_set():
@@ -306,6 +400,8 @@ async def output_dispatcher(stop_event: asyncio.Event) -> None:
             except aioredis.ResponseError as exc:
                 logger.warning("Redis error in output dispatcher: %s", exc)
                 await asyncio.sleep(1)
+    except Exception as exc:
+        logger.warning("output_dispatcher stopped: %s", exc)
     finally:
         await redis_client.aclose()
 

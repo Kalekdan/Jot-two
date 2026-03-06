@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import './Dashboard.css'
 
-function StatusBadge({ connected, label }) {
+function StatusBadge({ connected, label, status }) {
   return (
     <div className="status-item">
       <span className={`status-dot ${connected ? 'connected' : 'disconnected'}`} />
       <span className="status-label">{label}</span>
       <span className={`status-text ${connected ? 'connected' : 'disconnected'}`}>
-        {connected ? 'Connected' : 'Disconnected'}
+        {status ?? (connected ? 'Running' : 'Stopped')}
       </span>
     </div>
   )
@@ -45,12 +45,88 @@ function StreamCard({ name, data }) {
   )
 }
 
-function TableRow({ table }) {
+function TableRowExpander({ table }) {
+  const [expanded, setExpanded] = useState(false)
+  const [tableData, setTableData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function loadRows() {
+    if (tableData) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/database/${encodeURIComponent(table.name)}/rows`)
+      const data = await res.json()
+      if (data.ok) {
+        setTableData(data)
+      } else {
+        setError(data.error ?? 'Failed to load rows')
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleToggle() {
+    const next = !expanded
+    setExpanded(next)
+    if (next) loadRows()
+  }
+
   return (
-    <tr>
-      <td className="table-name">{table.name}</td>
-      <td className="table-count">{table.row_count >= 0 ? table.row_count.toLocaleString() : '—'}</td>
-    </tr>
+    <>
+      <tr
+        className="table-summary-row"
+        onClick={handleToggle}
+        title={expanded ? 'Collapse' : 'Click to expand rows'}
+      >
+        <td className="table-name">
+          <span className="expand-icon">{expanded ? '▾' : '▸'}</span>
+          {table.name}
+        </td>
+        <td className="table-count">
+          {table.row_count >= 0 ? table.row_count.toLocaleString() : '—'}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="table-detail-row">
+          <td colSpan={2} className="table-detail-cell">
+            {loading && <div className="inline-spinner" />}
+            {error && <p className="error-text">{error}</p>}
+            {tableData && tableData.rows.length === 0 && (
+              <p className="empty-text">Table is empty.</p>
+            )}
+            {tableData && tableData.rows.length > 0 && (
+              <div className="inner-table-wrapper">
+                <table className="inner-table">
+                  <thead>
+                    <tr>
+                      {tableData.columns.map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableData.rows.map((row, i) => (
+                      <tr key={i}>
+                        {row.map((cell, j) => (
+                          <td key={j}>{cell === null ? <em className="null-val">null</em> : String(cell)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {tableData.rows.length === 50 && (
+                  <p className="table-limit-note">Showing first 50 rows.</p>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -58,25 +134,29 @@ export default function Dashboard() {
   const [streams, setStreams] = useState(null)
   const [database, setDatabase] = useState(null)
   const [serviceStatus, setServiceStatus] = useState(null)
+  const [containers, setContainers] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
 
   async function fetchAll() {
     try {
-      const [streamsRes, dbRes, statusRes] = await Promise.all([
+      const [streamsRes, dbRes, statusRes, containersRes] = await Promise.all([
         fetch('/api/streams'),
         fetch('/api/database'),
         fetch('/api/status'),
+        fetch('/api/containers'),
       ])
-      const [streamsData, dbData, statusData] = await Promise.all([
+      const [streamsData, dbData, statusData, containersData] = await Promise.all([
         streamsRes.json(),
         dbRes.json(),
         statusRes.json(),
+        containersRes.json(),
       ])
       setStreams(streamsData)
       setDatabase(dbData)
       setServiceStatus(statusData)
+      setContainers(containersData)
       setLastRefresh(new Date())
       setError(null)
     } catch (err) {
@@ -113,6 +193,7 @@ export default function Dashboard() {
   const streamEntries = streams?.streams ? Object.entries(streams.streams) : []
   const tables = database?.tables ?? []
   const status = serviceStatus?.status ?? {}
+  const containerList = containers?.containers ?? []
 
   return (
     <div className="dashboard">
@@ -131,14 +212,17 @@ export default function Dashboard() {
       {/* Service Status */}
       <section className="card">
         <h2 className="card-title">Service Status</h2>
+        <div className="status-section-label">Infrastructure</div>
         <div className="status-grid">
           <StatusBadge
             connected={status.redis?.connected ?? false}
             label="Redis"
+            status={status.redis?.connected ? 'Connected' : 'Disconnected'}
           />
           <StatusBadge
             connected={status.postgres?.connected ?? false}
             label="PostgreSQL"
+            status={status.postgres?.connected ? 'Connected' : 'Disconnected'}
           />
         </div>
         {(status.redis?.error || status.postgres?.error) && (
@@ -150,6 +234,28 @@ export default function Dashboard() {
               <p className="error-text">PostgreSQL: {status.postgres.error}</p>
             )}
           </div>
+        )}
+
+        {/* Docker Containers */}
+        {containers?.ok === false ? (
+          <div className="containers-unavailable">
+            <div className="status-section-label" style={{ marginTop: '1rem' }}>Docker Containers</div>
+            <p className="empty-text">Container status unavailable: {containers.error}</p>
+          </div>
+        ) : containerList.length > 0 && (
+          <>
+            <div className="status-section-label" style={{ marginTop: '1rem' }}>Docker Containers</div>
+            <div className="status-grid">
+              {containerList.map((c) => (
+                <StatusBadge
+                  key={c.id}
+                  connected={c.running}
+                  label={c.name}
+                  status={c.status}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
 
@@ -189,7 +295,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {tables.map((t) => (
-                  <TableRow key={t.name} table={t} />
+                  <TableRowExpander key={t.name} table={t} />
                 ))}
               </tbody>
             </table>

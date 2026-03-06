@@ -83,6 +83,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-jot}:${POSTGRES_PASSWORD:-jot}@postgres:5432/${POSTGRES_DB:-jot}}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       redis:
         condition: service_healthy
