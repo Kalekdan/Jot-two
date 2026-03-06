@@ -9,6 +9,10 @@ from urllib import error, request
 from src.core.messages import Message
 
 
+# Set to True to return the full raw API response body for debugging.
+DEBUG_RAW_API_RESPONSE = False
+
+
 class Agent:
     """Single-turn agent that generates replies from an OpenAI-compatible chat API."""
 
@@ -21,9 +25,6 @@ class Agent:
             "OPENAI_SYSTEM_PROMPT",
             "You are Jot-two, a concise and helpful assistant.",
         ).strip()
-        self.max_completion_tokens = int(
-            os.environ.get("OPENAI_MAX_COMPLETION_TOKENS", "500")
-        )
         self.timeout_seconds = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "60"))
 
     def _build_url(self) -> str:
@@ -36,7 +37,6 @@ class Agent:
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": user_text},
             ],
-            "max_completion_tokens": self.max_completion_tokens,
         }
 
         req = request.Request(
@@ -50,7 +50,12 @@ class Agent:
         )
 
         with request.urlopen(req, timeout=self.timeout_seconds) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            raw_body = response.read().decode("utf-8", errors="replace")
+
+        if DEBUG_RAW_API_RESPONSE:
+            return raw_body
+
+        body = json.loads(raw_body)
 
         choices = body.get("choices", [])
         if not choices:
@@ -86,10 +91,13 @@ class Agent:
                 output_text = await asyncio.to_thread(self._call_llm, user_text)
             except error.HTTPError as exc:
                 error_body = exc.read().decode("utf-8", errors="replace")
-                output_text = (
-                    f"Model request failed with HTTP {exc.code}. "
-                    f"Response: {error_body}"
-                )
+                if DEBUG_RAW_API_RESPONSE:
+                    output_text = error_body or f"HTTP {exc.code} with empty response body."
+                else:
+                    output_text = (
+                        f"Model request failed with HTTP {exc.code}. "
+                        f"Response: {error_body}"
+                    )
             except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
                 output_text = f"Model request failed: {exc}"
 

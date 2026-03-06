@@ -122,7 +122,6 @@ To be set in the .env file
 - `OPENAI_CHAT_ENDPOINT` (default `/v1/chat/completions`): chat completion path
 - `OPENAI_MODEL` (default `gpt-5-nano`): model identifier
 - `OPENAI_SYSTEM_PROMPT`: system instruction sent with every request
-- `OPENAI_MAX_COMPLETION_TOKENS` (default `500`): response token cap
 - `OPENAI_TIMEOUT_SECONDS` (default `60`): HTTP timeout for model calls
 
 ### Optional Environment Variables
