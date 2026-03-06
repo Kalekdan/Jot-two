@@ -1,0 +1,27 @@
+# Stage 1: Build the React frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+COPY web-app/package.json web-app/package-lock.json* ./
+RUN npm install --frozen-lockfile 2>/dev/null || npm install
+
+COPY web-app/ ./
+RUN npm run build
+
+# Stage 2: Python backend with the built frontend
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+
+# Copy the built React app to where FastAPI will serve it from
+COPY --from=frontend-builder /frontend/dist ./web-app/dist
+
+EXPOSE 8080
+
+CMD ["python", "-m", "src.main_webapp"]
