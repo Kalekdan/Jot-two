@@ -55,17 +55,18 @@ This is sent to the input queue to be picked up by the agent.
 
 ### Tool System
 Tools provide the assistant with the ability to interact with external systems.
-Each tool is implemented as a module and placed in the `tools/` directory.
+Each tool is implemented as a module and placed in the `src/agent/tools/` directory.
+Each module can expose one or many tools (for example, `weather.py` can include `get_current_weather` and `get_future_weather`).
 
 Tools must implement a standard interface:
 - name
 - description
 - parameters
 - execute()
-The agent dynamically loads all tools at startup.
+The agent dynamically discovers and loads all tools at startup, then exposes them to the LLM through function-calling so tools can be selected and executed automatically.
 Example:
 ```
-tools/
+src/agent/tools/
   home_assistant.py
   rss_reader.py
   calendar.py
@@ -136,6 +137,11 @@ To be set in the .env file
 - `TELEGRAM_RETRY_DELAY` (default `2`): delay before retrying after Telegram API errors
 - `OPENAI_SUMMARY_EVERY_MESSAGES` (default `10`): refresh summary after this many new conversation messages
 - `OPENAI_RECENT_MESSAGES_LIMIT` (default `10`): number of recent messages included in each request
+- `OPENAI_MAX_TOOL_ROUNDS` (default `5`): max tool-call rounds per user message before stopping
+- `OPENWEATHERMAP_API_KEY`: API key used by the weather tool
+- `OPENWEATHERMAP_BASE_URL` (default `https://api.openweathermap.org/data/2.5/weather`): weather endpoint override
+- `OPENWEATHERMAP_FORECAST_BASE_URL` (default `https://api.openweathermap.org/data/2.5/forecast`): forecast endpoint override
+- `OPENWEATHERMAP_TIMEOUT_SECONDS` (default `10`): HTTP timeout used by the weather tool
 ### Docker Compose Usage
 
 ```bash
