@@ -30,3 +30,7 @@ htmlcov/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Node.js / frontend
+web-app/node_modules/
+web-app/dist/

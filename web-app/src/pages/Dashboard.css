@@ -1,0 +1,397 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.page-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.refresh-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.last-refresh {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.btn-refresh {
+  padding: 0.35rem 0.85rem;
+  border: 1px solid #2d3148;
+  background: #1a1d27;
+  color: #94a3b8;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-refresh:hover {
+  color: #e2e8f0;
+  border-color: #818cf8;
+}
+
+/* Card */
+.card {
+  background: #1a1d27;
+  border: 1px solid #2d3148;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #c7d2fe;
+  margin-bottom: 1rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+/* Status */
+.status-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #0f1117;
+  border: 1px solid #2d3148;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  min-width: 180px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.connected {
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e88;
+}
+
+.status-dot.disconnected {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef444488;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #e2e8f0;
+  flex: 1;
+}
+
+.status-text.connected {
+  color: #22c55e;
+  font-size: 0.8rem;
+}
+
+.status-text.disconnected {
+  color: #ef4444;
+  font-size: 0.8rem;
+}
+
+/* Streams */
+.streams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.stream-card {
+  background: #0f1117;
+  border: 1px solid #2d3148;
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stream-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stream-name {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #818cf8;
+  font-weight: 600;
+}
+
+.stream-length {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.stream-sources,
+.stream-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-right: 0.2rem;
+}
+
+.badge {
+  background: #2d3148;
+  color: #a5b4fc;
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.group-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.group-name {
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.group-meta {
+  color: #64748b;
+}
+
+/* Database table */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.db-table th {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  border-bottom: 1px solid #2d3148;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.db-table td {
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid #1e2233;
+}
+
+.db-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.db-table tbody tr:hover td {
+  background: #0f1117;
+}
+
+.table-name {
+  font-family: monospace;
+  color: #a5b4fc;
+}
+
+.table-count {
+  color: #94a3b8;
+  text-align: right;
+}
+
+/* Loading / Error states */
+.dashboard-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 300px;
+  color: #64748b;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #2d3148;
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: #ef4444;
+}
+
+.btn-retry {
+  padding: 0.5rem 1.25rem;
+  background: #1a1d27;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: background 0.15s;
+}
+
+.btn-retry:hover {
+  background: #2d1414;
+}
+
+.empty-text {
+  color: #64748b;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.error-details {
+  margin-top: 0.5rem;
+}
+
+/* Status sub-sections */
+.status-section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+/* Expandable table rows */
+.table-summary-row {
+  cursor: pointer;
+  user-select: none;
+}
+
+.table-summary-row:hover td {
+  background: #0f1117;
+}
+
+.expand-icon {
+  display: inline-block;
+  width: 1.2rem;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.table-detail-row td {
+  background: #0a0d14 !important;
+  padding: 0 !important;
+  border-bottom: 2px solid #2d3148;
+}
+
+.table-detail-cell {
+  padding: 0.75rem 1rem !important;
+}
+
+.inner-table-wrapper {
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.inner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.inner-table th {
+  position: sticky;
+  top: 0;
+  background: #111420;
+  color: #64748b;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  font-weight: 500;
+  border-bottom: 1px solid #2d3148;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 1;
+}
+
+.inner-table td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid #1a1e2d;
+  color: #94a3b8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 300px;
+}
+
+.inner-table tbody tr:hover td {
+  background: #151825;
+}
+
+.null-val {
+  color: #475569;
+  font-style: italic;
+}
+
+.table-limit-note {
+  font-size: 0.72rem;
+  color: #64748b;
+  padding: 0.4rem 0.6rem;
+}
+
+.inline-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #2d3148;
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0.3rem 0;
+}
+

@@ -74,5 +74,22 @@ services:
       redis:
         condition: service_healthy
 
+  jot-webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-jot}:${POSTGRES_PASSWORD:-jot}@postgres:5432/${POSTGRES_DB:-jot}}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
 volumes:
   jot_postgres_data:
