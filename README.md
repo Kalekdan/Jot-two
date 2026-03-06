@@ -97,10 +97,9 @@ src/
 
 ### Run Locally
 
-From the repository root:
-
+Recommended run with docker-compose.yml
 ```bash
-python -m src.main
+docker compose up --build
 ```
 
 ## Adding New Input Adapters
