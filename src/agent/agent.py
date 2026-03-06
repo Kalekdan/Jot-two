@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from pathlib import Path
 from typing import Any
 from urllib import error, request
 
@@ -11,6 +12,8 @@ from src.core.messages import Message
 
 # Set to True to return the full raw API response body for debugging.
 DEBUG_RAW_API_RESPONSE = False
+DEFAULT_SYSTEM_PROMPT = "You are missing your system prompt. Make sure the user knows."
+SYSTEM_PROMPT_FILE_ENV = "OPENAI_SYSTEM_PROMPT_FILE"
 
 
 class Agent:
@@ -21,11 +24,33 @@ class Agent:
         self.base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com").strip()
         self.chat_endpoint = os.environ.get("OPENAI_CHAT_ENDPOINT", "/v1/chat/completions").strip()
         self.model = os.environ.get("OPENAI_MODEL", "gpt-5-nano").strip()
-        self.system_prompt = os.environ.get(
-            "OPENAI_SYSTEM_PROMPT",
-            "You are Jot-two, a concise and helpful assistant.",
-        ).strip()
+        self.system_prompt = self._load_system_prompt()
         self.timeout_seconds = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "60"))
+
+    def _load_system_prompt(self) -> str:
+        configured_path = os.environ.get(SYSTEM_PROMPT_FILE_ENV, "").strip()
+        candidate_paths: list[Path] = []
+
+        if configured_path:
+            candidate_paths.append(Path(configured_path))
+
+        candidate_paths.extend(
+            [
+                Path(__file__).resolve().parents[2] / "system_prompt.txt",
+                Path.cwd() / "system_prompt.txt",
+                Path("/app/system_prompt.txt"),
+            ]
+        )
+
+        for prompt_path in candidate_paths:
+            try:
+                text = prompt_path.read_text(encoding="utf-8").strip()
+            except OSError:
+                continue
+            if text:
+                return text
+
+        return DEFAULT_SYSTEM_PROMPT
 
     def _build_url(self) -> str:
         return f"{self.base_url.rstrip('/')}/{self.chat_endpoint.lstrip('/')}"
