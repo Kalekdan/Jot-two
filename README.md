@@ -71,6 +71,14 @@ tools/
   calendar.py
 ```
 
+### LLM Delivery Architecture
+To ensure the bot retains context of what is said and conversation history, each payload sent to the LLM includes the following:
+- *System Prompt* - The first message defining the rules of the assistant
+- *A conversation summary* - Every 20 (configurable) messages, a summary is updated and this is sent to the LLM as well
+- *Retrieved memory* - From a vector DB, to get any additional relevant context. A classic RAG approach
+- *Recent messages* - the past 5 (configurable) messages sent are included
+- *User message* - the actual user request
+
 
 ## Repository Structure
 ```
@@ -109,12 +117,18 @@ No changes are required outside `src/adapters/` for adapter registration.
 ### Required Environment Variable
 To be set in the .env file
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token from BotFather
+- `OPENAI_API_KEY`: API key for your OpenAI-compatible endpoint
+- `OPENAI_BASE_URL` (default `https://api.openai.com`): provider base URL
+- `OPENAI_CHAT_ENDPOINT` (default `/v1/chat/completions`): chat completion path
+- `OPENAI_MODEL` (default `gpt-5-nano`): model identifier
+- `OPENAI_SYSTEM_PROMPT`: system instruction sent with every request
+- `OPENAI_MAX_COMPLETION_TOKENS` (default `500`): response token cap
+- `OPENAI_TIMEOUT_SECONDS` (default `60`): HTTP timeout for model calls
 
 ### Optional Environment Variables
 To be set in the .env file
 - `TELEGRAM_POLL_TIMEOUT` (default `20`): long-poll timeout in seconds for `getUpdates`
 - `TELEGRAM_RETRY_DELAY` (default `2`): delay before retrying after Telegram API errors
-
 ### Docker Compose Usage
 
 ```bash

@@ -28,6 +28,13 @@ services:
     command: python -m src.main_core
     environment:
       - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com}
+      - OPENAI_CHAT_ENDPOINT=${OPENAI_CHAT_ENDPOINT:-/v1/chat/completions}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5-nano}
+      - OPENAI_SYSTEM_PROMPT=${OPENAI_SYSTEM_PROMPT:-You are Jot-two, a concise and helpful assistant.}
+      - OPENAI_MAX_COMPLETION_TOKENS=${OPENAI_MAX_COMPLETION_TOKENS:-500}
+      - OPENAI_TIMEOUT_SECONDS=${OPENAI_TIMEOUT_SECONDS:-60}
     depends_on:
       redis:
         condition: service_healthy
