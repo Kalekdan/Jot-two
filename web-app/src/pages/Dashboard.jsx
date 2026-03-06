@@ -180,7 +180,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchAll()
-    const interval = setInterval(fetchAll, 10000)
+    const interval = setInterval(fetchAll, 120000)
     return () => clearInterval(interval)
   }, [])
 
