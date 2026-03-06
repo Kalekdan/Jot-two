@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './Dashboard.css'
 
 function StatusBadge({ connected, label, status }) {
@@ -45,35 +45,45 @@ function StreamCard({ name, data }) {
   )
 }
 
-function TableRowExpander({ table }) {
+function TableRowExpander({ table, refreshKey }) {
   const [expanded, setExpanded] = useState(false)
   const [tableData, setTableData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const abortRef = useRef(null)
 
   async function loadRows() {
-    if (tableData) return
+    // Cancel any in-flight request before starting a new one
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     try {
-      const res = await fetch(`/api/database/${encodeURIComponent(table.name)}/rows`)
+      const res = await fetch(`/api/database/${encodeURIComponent(table.name)}/rows`, {
+        signal: controller.signal,
+      })
       const data = await res.json()
       if (data.ok) {
         setTableData(data)
+        setError(null)
       } else {
         setError(data.error ?? 'Failed to load rows')
       }
     } catch (err) {
-      setError(err.message)
+      if (err.name !== 'AbortError') setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
   function handleToggle() {
-    const next = !expanded
-    setExpanded(next)
-    if (next) loadRows()
+    setExpanded((prev) => !prev)
   }
+
+  useEffect(() => {
+    if (expanded) loadRows()
+  }, [refreshKey, expanded])
 
   return (
     <>
@@ -138,6 +148,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   async function fetchAll() {
     try {
@@ -158,6 +169,7 @@ export default function Dashboard() {
       setServiceStatus(statusData)
       setContainers(containersData)
       setLastRefresh(new Date())
+      setRefreshKey((k) => k + 1)
       setError(null)
     } catch (err) {
       setError(`Failed to load dashboard data: ${err.message}`)
@@ -295,7 +307,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {tables.map((t) => (
-                  <TableRowExpander key={t.name} table={t} />
+                  <TableRowExpander key={t.name} table={t} refreshKey={refreshKey} />
                 ))}
               </tbody>
             </table>
