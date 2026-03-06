@@ -9,6 +9,22 @@ services:
       timeout: 3s
       retries: 5
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-jot}
+      - POSTGRES_USER=${POSTGRES_USER:-jot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-jot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - jot_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jot} -d ${POSTGRES_DB:-jot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   jot-adapters:
     build: .
     command: python -m src.main_adapters
@@ -28,6 +44,7 @@ services:
     command: python -m src.main_core
     environment:
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-jot}:${POSTGRES_PASSWORD:-jot}@postgres:5432/${POSTGRES_DB:-jot}}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com}
       - OPENAI_CHAT_ENDPOINT=${OPENAI_CHAT_ENDPOINT:-/v1/chat/completions}
@@ -39,6 +56,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   jot-router:
     build: .
@@ -49,3 +68,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+
+volumes:
+  jot_postgres_data:

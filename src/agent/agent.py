@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
-from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
@@ -10,6 +8,7 @@ from typing import Any
 from urllib import error, request
 
 from src.core.messages import Message
+from src.agent.storage import ConversationStore
 
 
 # Set to True to return the full raw API response body for debugging.
@@ -18,15 +17,6 @@ DEFAULT_SYSTEM_PROMPT = "You are missing your system prompt. Make sure the user 
 SYSTEM_PROMPT_FILE_ENV = "OPENAI_SYSTEM_PROMPT_FILE"
 DEFAULT_SUMMARY_EVERY_MESSAGES = 10
 DEFAULT_RECENT_MESSAGES_LIMIT = 10
-
-
-@dataclass
-class ConversationState:
-    summary: str = ""
-    recent_messages: deque[dict[str, str]] = field(
-        default_factory=lambda: deque(maxlen=200)
-    )
-    pending_summary_messages: list[dict[str, str]] = field(default_factory=list)
 
 
 class Agent:
@@ -49,7 +39,13 @@ class Agent:
             DEFAULT_RECENT_MESSAGES_LIMIT,
             minimum=1,
         )
-        self._conversations: dict[str, ConversationState] = {}
+        self.store = ConversationStore()
+
+    async def initialize(self) -> None:
+        await self.store.connect()
+
+    async def close(self) -> None:
+        await self.store.close()
 
     def _read_int_env(self, key: str, default: int, minimum: int = 0) -> int:
         raw_value = os.environ.get(key)
@@ -142,55 +138,48 @@ class Agent:
     def _conversation_key(self, message: Message) -> str:
         return f"{message.source}:{message.user_id}"
 
-    def _get_state(self, message: Message) -> ConversationState:
-        key = self._conversation_key(message)
-        if key not in self._conversations:
-            self._conversations[key] = ConversationState()
-        return self._conversations[key]
-
     def _build_chat_messages(
         self,
-        state: ConversationState,
+        summary: str,
+        recent_messages: list[dict[str, str]],
         user_text: str,
     ) -> list[dict[str, str]]:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": self.system_prompt}
         ]
 
-        if state.summary:
+        if summary:
             messages.append(
                 {
                     "role": "system",
-                    "content": f"Conversation summary:\n{state.summary}",
+                    "content": f"Conversation summary:\n{summary}",
                 }
             )
 
-        if state.recent_messages:
-            recent = list(state.recent_messages)[-self.recent_messages_limit :]
-            messages.extend(recent)
+        if recent_messages:
+            messages.extend(recent_messages)
 
         messages.append({"role": "user", "content": user_text})
         return messages
 
-    def _record_turn(
-        self,
-        state: ConversationState,
-        user_text: str,
-        assistant_text: str,
-    ) -> None:
-        user_message = {"role": "user", "content": user_text}
-        assistant_message = {"role": "assistant", "content": assistant_text}
-        state.recent_messages.append(user_message)
-        state.recent_messages.append(assistant_message)
-        state.pending_summary_messages.append(user_message)
-        state.pending_summary_messages.append(assistant_message)
+    async def _maybe_refresh_summary(self, conversation_key: str) -> None:
+        latest_summary = await self.store.get_latest_summary(conversation_key)
+        last_summary_text = latest_summary.summary_text if latest_summary else ""
+        last_summary_created_at = latest_summary.created_at if latest_summary else None
 
-    def _maybe_refresh_summary(self, state: ConversationState) -> None:
-        if len(state.pending_summary_messages) < self.summary_every_messages:
+        pending_count = await self.store.count_messages_since(
+            conversation_key,
+            last_summary_created_at,
+        )
+        if pending_count < self.summary_every_messages:
             return
 
+        pending_messages = await self.store.get_messages_since(
+            conversation_key,
+            last_summary_created_at,
+        )
         transcript = "\n".join(
-            f"{item['role']}: {item['content']}" for item in state.pending_summary_messages
+            f"{item['role']}: {item['content']}" for item in pending_messages
         )
         summary_messages = [
             {
@@ -204,7 +193,7 @@ class Agent:
                 "role": "user",
                 "content": (
                     "Current summary:\n"
-                    f"{state.summary or 'None'}\n\n"
+                    f"{last_summary_text or 'None'}\n\n"
                     "New conversation messages:\n"
                     f"{transcript}\n\n"
                     "Return an updated summary in plain text, under 180 words."
@@ -212,28 +201,57 @@ class Agent:
             },
         ]
 
-        updated_summary = self._call_llm(summary_messages, return_raw_on_debug=False).strip()
+        updated_summary = await asyncio.to_thread(
+            self._call_llm,
+            summary_messages,
+            False,
+        )
         if updated_summary:
-            state.summary = updated_summary
-            state.pending_summary_messages.clear()
+            await self.store.add_summary(conversation_key, updated_summary)
 
     async def process(self, message: Message) -> Message:
         user_text = str(message.payload.get("text", "")).strip()
+        conversation_key = self._conversation_key(message)
 
         if not user_text:
             output_text = "I did not receive any text to process."
         elif not self.api_key:
             output_text = "OPENAI_API_KEY is not configured."
+            await self.store.append_message(
+                conversation_key,
+                "user",
+                user_text,
+                message.timestamp,
+            )
+            await self.store.append_message(
+                conversation_key,
+                "assistant",
+                output_text,
+                message.timestamp,
+            )
         else:
-            state = self._get_state(message)
-            llm_messages = self._build_chat_messages(state, user_text)
+            latest_summary = await self.store.get_latest_summary(conversation_key)
+            summary_text = latest_summary.summary_text if latest_summary else ""
+            recent_messages = await self.store.get_recent_messages(
+                conversation_key,
+                self.recent_messages_limit,
+            )
+
+            llm_messages = self._build_chat_messages(
+                summary_text,
+                recent_messages,
+                user_text,
+            )
+
+            await self.store.append_message(
+                conversation_key,
+                "user",
+                user_text,
+                message.timestamp,
+            )
+
             try:
                 output_text = await asyncio.to_thread(self._call_llm, llm_messages)
-                self._record_turn(state, user_text, output_text)
-                try:
-                    await asyncio.to_thread(self._maybe_refresh_summary, state)
-                except (error.HTTPError, error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
-                    pass
             except error.HTTPError as exc:
                 error_body = exc.read().decode("utf-8", errors="replace")
                 if DEBUG_RAW_API_RESPONSE:
@@ -245,6 +263,18 @@ class Agent:
                     )
             except (error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
                 output_text = f"Model request failed: {exc}"
+
+            await self.store.append_message(
+                conversation_key,
+                "assistant",
+                output_text,
+                message.timestamp,
+            )
+
+            try:
+                await self._maybe_refresh_summary(conversation_key)
+            except (error.HTTPError, error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+                pass
 
         response = Message(
             request_id=message.request_id,

@@ -79,6 +79,8 @@ To ensure the bot retains context of what is said and conversation history, each
 - *Recent messages* - the past 5 (configurable) messages sent are included
 - *User message* - the actual user request
 
+Conversation messages and summaries are persisted in PostgreSQL. Recent message retrieval and latest-summary lookup are read from the database instead of in-memory state.
+
 
 ## Repository Structure
 ```
@@ -118,6 +120,10 @@ No changes are required outside `src/adapters/` for adapter registration.
 To be set in the .env file
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token from BotFather
 - `OPENAI_API_KEY`: API key for your OpenAI-compatible endpoint
+- `DATABASE_URL`: PostgreSQL DSN used by `jot-core` to persist conversation messages and summaries
+- `POSTGRES_DB`: PostgreSQL database name for docker-compose setup
+- `POSTGRES_USER`: PostgreSQL username for docker-compose setup
+- `POSTGRES_PASSWORD`: PostgreSQL password for docker-compose setup
 - `OPENAI_BASE_URL` (default `https://api.openai.com`): provider base URL
 - `OPENAI_CHAT_ENDPOINT` (default `/v1/chat/completions`): chat completion path
 - `OPENAI_MODEL` (default `gpt-5-nano`): model identifier
