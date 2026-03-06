@@ -121,13 +121,15 @@ To be set in the .env file
 - `OPENAI_BASE_URL` (default `https://api.openai.com`): provider base URL
 - `OPENAI_CHAT_ENDPOINT` (default `/v1/chat/completions`): chat completion path
 - `OPENAI_MODEL` (default `gpt-5-nano`): model identifier
-- `OPENAI_SYSTEM_PROMPT`: system instruction sent with every request
+- `OPENAI_SYSTEM_PROMPT_FILE`: path to the text file containing the system prompt
 - `OPENAI_TIMEOUT_SECONDS` (default `60`): HTTP timeout for model calls
 
 ### Optional Environment Variables
 To be set in the .env file
 - `TELEGRAM_POLL_TIMEOUT` (default `20`): long-poll timeout in seconds for `getUpdates`
 - `TELEGRAM_RETRY_DELAY` (default `2`): delay before retrying after Telegram API errors
+- `OPENAI_SUMMARY_EVERY_MESSAGES` (default `10`): refresh summary after this many new conversation messages
+- `OPENAI_RECENT_MESSAGES_LIMIT` (default `10`): number of recent messages included in each request
 ### Docker Compose Usage
 
 ```bash
