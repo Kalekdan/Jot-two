@@ -117,10 +117,12 @@ To add a new adapter, create a new module in `src/adapters/` and define a class 
 No changes are required outside `src/adapters/` for adapter registration.
 
 
-### Required Environment Variable
+### Required Environment Variables
 To be set in the .env file
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token from BotFather
 - `OPENAI_API_KEY`: API key for your OpenAI-compatible endpoint
+
+The below need to be populated, but can be left as default and will be autopopulated.
 - `DATABASE_URL`: PostgreSQL DSN used by `jot-core` to persist conversation messages and summaries
 - `POSTGRES_DB`: PostgreSQL database name for docker-compose setup
 - `POSTGRES_USER`: PostgreSQL username for docker-compose setup
